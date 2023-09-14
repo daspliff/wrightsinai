@@ -1,0 +1,476 @@
+<h1 id="introduction">Introduction<ac:structured-macro ac:name="anchor" ac:schema-version="1" ac:local-id="a6aa6f25-0bee-4a7f-929b-71fcb7eba592" ac:macro-id="d2cb5be1217ae6e086bc60005e9d27b7"><ac:parameter ac:name="">introduction</ac:parameter></ac:structured-macro></h1>
+<p>In this document, we will analyze the directory structure and contents of the <strong>RWDMS</strong> filesystem. We will examine file sizes, file types, and the distribution of files across different directories. We will also seek to identify any large files that are duplicated across multiple directories.</p>
+<h1 id="data-collection">Data Collection<ac:structured-macro ac:name="anchor" ac:schema-version="1" ac:local-id="a6aa6f25-0bee-4a7f-929b-71fcb7eba592" ac:macro-id="d2cb5be1217ae6e086bc60005e9d27b7"><ac:parameter ac:name="">data-collection</ac:parameter></ac:structured-macro></h1>
+<p>The data for this analysis was collected using a PowerShell script that recursively iterates through the RWDMS filesystem and outputs the directory structure and file information to a text file. The script (included below) generates a text file with the following columns: <em>Directory, Full Path, File Name, File Extension, File Size.</em></p>
+<ac:structured-macro
+      ac:name="code"
+      ac:schema-version="1"
+      ac:macro-id="1d1a2d13-0179-4d8f-b448-b28dfaceea4a">
+        <ac:parameter ac:name="language">powershell</ac:parameter>
+        <ac:plain-text-body>
+          <![CDATA[Get-ChildItem -Recurse -File | ForEach-Object { 
+    $firstDir = ($_.DirectoryName -split '\\')[1]
+    "$firstDir, $($_.DirectoryName), $($_.Name), $($_.Extension), $($_.Length)"
+} > D:\tree\file_paths_20230830.txt]]>
+        </ac:plain-text-body>
+    </ac:structured-macro>
+<h1 id="importing-data">Importing Data<ac:structured-macro ac:name="anchor" ac:schema-version="1" ac:local-id="a6aa6f25-0bee-4a7f-929b-71fcb7eba592" ac:macro-id="d2cb5be1217ae6e086bc60005e9d27b7"><ac:parameter ac:name="">importing-data</ac:parameter></ac:structured-macro></h1>
+<p>First, we’ll import the data that we’ve collected using the PowerShell script and add names to the columns. Be sure to set the encoding to <strong>UCS-2LE</strong> to avoid errors. We’ll also use the <code>rename()</code> function to give the columns more descriptive names. We’ll print the first few rows of the data and the names of the directories to make sure everything looks good.</p>
+<div class="cell">
+<ac:structured-macro
+      ac:name="code"
+      ac:schema-version="1"
+      ac:macro-id="1d1a2d13-0179-4d8f-b448-b28dfaceea4a">
+        <ac:parameter ac:name="language">r</ac:parameter>
+        <ac:plain-text-body>
+          <![CDATA[library(tidyverse)
+rdwms_data <- read.csv("/Users/RM/Library/CloudStorage/OneDrive-TheMountSinaiHospital/work/rwdms_assay/file_paths_20230830.txt",
+    header = F,
+    stringsAsFactors = FALSE,
+    check.names = F,
+    fileEncoding = "UCS-2LE"
+) %>%
+    rename(
+        root_dir = V1,
+        abs_path = V2,
+        file_name = V3,
+        file_ext = V4,
+        file_size = V5
+    )
+
+# Print first few rows of data
+head(rdwms_data)]]>
+        </ac:plain-text-body>
+    </ac:structured-macro>
+<div class="cell-output cell-output-stdout">
+<ac:structured-macro
+      ac:name="code"
+      ac:schema-version="1"
+      ac:macro-id="1d1a2d13-0179-4d8f-b448-b28dfaceea4a">
+        <ac:parameter ac:name="language"></ac:parameter>
+        <ac:plain-text-body>
+          <![CDATA[    root_dir        abs_path                                     file_name
+1 CANDLEResp  D:\\CANDLEResp                       BS_data_dictionary.xlsx
+2 CANDLEResp  D:\\CANDLEResp  CANDLE 8-9 _ REDCap_codebook_23April2018.pdf
+3 CANDLEResp  D:\\CANDLEResp   File_load_explanation_from_UW_2022_7_13.txt
+4 CANDLEResp  D:\\CANDLEResp                      IgE_data_dictionary.xlsx
+5 CANDLEResp  D:\\CANDLEResp                         mssm_candle_p1age.csv
+6 CANDLEResp  D:\\CANDLEResp                        mssm_candle_p1demo.csv
+  file_ext file_size
+1    .xlsx     18203
+2     .pdf    709697
+3     .txt       360
+4    .xlsx     15885
+5     .csv     15169
+6     .csv    173110]]>
+        </ac:plain-text-body>
+    </ac:structured-macro>
+</div>
+<ac:structured-macro
+      ac:name="code"
+      ac:schema-version="1"
+      ac:macro-id="1d1a2d13-0179-4d8f-b448-b28dfaceea4a">
+        <ac:parameter ac:name="language">r</ac:parameter>
+        <ac:plain-text-body>
+          <![CDATA[# Print the names of the directories
+unique(rdwms_data$root_dir)]]>
+        </ac:plain-text-body>
+    </ac:structured-macro>
+<div class="cell-output cell-output-stdout">
+<ac:structured-macro
+      ac:name="code"
+      ac:schema-version="1"
+      ac:macro-id="1d1a2d13-0179-4d8f-b448-b28dfaceea4a">
+        <ac:parameter ac:name="language"></ac:parameter>
+        <ac:plain-text-body>
+          <![CDATA[ [1] "CANDLEResp"             "CTSA"                   "CTSA_DEMO_NDVI_SUMMER" 
+ [4] "CTSA_DEMO_NDVI_WINTER"  "Data_Store_Development" "Environmental_Data"    
+ [7] "Erwin_data_modelor"     "Exposures for CTSA"     "HAPs data"             
+[10] "RUN_AERMET"             "Sample_assay"           "Sleep_study"           
+[13] "tree"                  ]]>
+        </ac:plain-text-body>
+    </ac:structured-macro>
+</div>
+</div>
+<p>One obvious takeway from a cursory look at the raw dataset is the non-standardization of file names in the directories. For example, some directories use underscores to separate words, while others use spaces. Some directories use camel case, while others use all caps. Standardizing file names is an important practice in data science as it helps maintain consistency, organization, and ease of collaboration within a project or team.</p>
+<h1 id="basic-structure-analysis">Basic Structure Analysis<ac:structured-macro ac:name="anchor" ac:schema-version="1" ac:local-id="a6aa6f25-0bee-4a7f-929b-71fcb7eba592" ac:macro-id="d2cb5be1217ae6e086bc60005e9d27b7"><ac:parameter ac:name="">basic-structure-analysis</ac:parameter></ac:structured-macro></h1>
+<p>Lets start by looking at the number of files in each directory. We’ll use the <code>root_dir</code> column to group the data and then count the number of files in each group. Also, we’ll remove the <code>tree</code> directory from the data since this was a directory we created to store the outputs generated from the powershell script. We’ll then arrange the data in descending order by the number of files in each directory and calculate the total size of each directory. Finally, we’ll add two columns that calculates the fractional number of files in each directory, and the fractional size of each directory, respectively.</p>
+<div class="cell">
+<ac:structured-macro
+      ac:name="code"
+      ac:schema-version="1"
+      ac:macro-id="1d1a2d13-0179-4d8f-b448-b28dfaceea4a">
+        <ac:parameter ac:name="language">r</ac:parameter>
+        <ac:plain-text-body>
+          <![CDATA[library(DT)
+library(dplyr)
+library(knitr)
+library(scales)
+library(kableExtra)
+
+total_files <- rdwms_data %>%
+    filter(root_dir != "tree") %>%
+    nrow() # Total number of files
+
+rdwms_data %>%
+    filter(root_dir != "tree") %>%
+    group_by(root_dir) %>%
+    summarise(n_files = n(), total_size = sum(file_size)) %>%
+    arrange(desc(n_files)) %>%
+    mutate(
+        n_files = n_files, # Remove comma formatting for calculation
+        size_GB = total_size / (1024^3), # Convert bytes to GB
+        frac_num = n_files / total_files, # Calculate percentages
+        frac_size = total_size / sum(rdwms_data$file_size, na.rm = TRUE)
+    ) %>%
+    select(root_dir, n_files, size_GB, frac_num, frac_size) %>%
+    mutate(
+        n_files = scales::comma(n_files), # Add comma formatting
+        size_GB = scales::comma(round(size_GB, 2)),
+        frac_num = paste0(round(frac_num * 100, 2), "%"),
+        frac_size = paste0(round(frac_size * 100, 2), "%")
+    ) %>%
+    datatable(
+        options = list(
+            columnDefs = list(list(className = "dt-left", targets = 1)),
+            scrollX = TRUE, # Enable horizontal scrolling
+            dom = "ft", # Add search box and table footer
+            pageLength = 12, # Number of rows per page
+            lengthMenu = c(10, 25, 50, 100), # Number of rows per page options
+            ordering = TRUE # Enable column sorting
+        ),
+        caption = htmltools::tags$caption(
+            style = "caption-side: bottom; text-align: center;",
+            "Table 1: ", htmltools::em("Summary statistics of the RWDMS filesystem")
+        )
+    )%>%
+    DT::formatStyle(columns = c(1, 2, 3, 4, 5), fontSize = "11pt")]]>
+        </ac:plain-text-body>
+    </ac:structured-macro>
+<div class="cell-output-display">
+
+</div>
+</div>
+<p><br/> As we can see, the <code>HAPs data</code> directory contains the most files (specifically, 98% of all files), followed by the <code>CTSA</code> directory. However, the <code>Environmental_Data</code> directory , which accounts for only <em>0.6%</em> of the number of files contains the most data (53%). We can assume that is because the <code>Environmental_Data</code> directory contains a a smaller number of relatively large files, while the <code>HAPs data</code> directory contains many smaller files. We’ll explore this further in the next section.</p>
+<p>Lets see what that looks like when we plot it. We’ll create a bar plot of the number of files in each directory. Because the data is very skewed, as shown in the table above, we’ll log-transform the y-axis and sort the directories in descending order of total number of files.</p>
+<div class="cell" data-fig.cap-align="center">
+<ac:structured-macro
+      ac:name="code"
+      ac:schema-version="1"
+      ac:macro-id="1d1a2d13-0179-4d8f-b448-b28dfaceea4a">
+        <ac:parameter ac:name="language">r</ac:parameter>
+        <ac:plain-text-body>
+          <![CDATA[rdwms_data %>%
+    filter(root_dir != "tree") %>%
+    group_by(root_dir) %>%
+    summarize(Count = n()) %>%
+    ggplot(aes(x = reorder(root_dir, -Count), y = Count)) +
+    geom_bar(stat = "identity", fill = "grey55", alpha = 0.8) +
+    theme_minimal() + # Set to minimal theme
+    theme(
+        axis.text.x = element_text(angle = 45, hjust = 1, size = 11),
+        axis.text.y = element_text(size = 11),
+        panel.background = element_blank(), # Remove panel background
+        plot.background = element_blank()
+    ) + # Remove plot background
+    labs(
+        title = "Number of Files in Each Root Directory",
+        x = "Root Directory", y = "File Count (log10) "
+    ) +
+    scale_y_log10() # Add log-scale y-axis]]>
+        </ac:plain-text-body>
+    </ac:structured-macro>
+<div class="cell-output-display">
+<p><p><ac:structured-macro ac:name="anchor" ac:schema-version="1" ac:local-id="a6aa6f25-0bee-4a7f-929b-71fcb7eba592" ac:macro-id="d2cb5be1217ae6e086bc60005e9d27b7"><ac:parameter ac:name="">fig-barplot1</ac:parameter></ac:structured-macro></p><ac:image
+    ac:align="center"
+    ac:layout="center"
+    ac:alt="">
+        <ri:attachment ri:filename="RWDMS_assay_files/figure-publish/fig-barplot1-1.png" /><ac:caption>Figure 1: Number of files in each root directory (Y-Axis is log10 scale)</ac:caption>
+    </ac:image></p>
+</div>
+</div>
+<p>This second plot displays both the number of files and the size of each directory (in GB), using a secondary y-axis.</p>
+<div class="cell" data-fig.cap-align="center">
+<ac:structured-macro
+      ac:name="code"
+      ac:schema-version="1"
+      ac:macro-id="1d1a2d13-0179-4d8f-b448-b28dfaceea4a">
+        <ac:parameter ac:name="language">r</ac:parameter>
+        <ac:plain-text-body>
+          <![CDATA[rdwms_data %>%
+    filter(root_dir != "tree") %>%
+    group_by(root_dir) %>%
+    summarize(Count = n(), Size = (sum(file_size) / (1024^3))) %>%
+    # filter(Size > 1.0) %>% # Filter out directories with less than 1GB of data
+    ggplot(aes(x = reorder(root_dir, -Count))) +
+    geom_bar(aes(y = Count),
+        stat = "identity", width = 0.9,
+        # position = position_dodge(width = 0.4), # Position bars side by side
+        fill = "grey55", alpha = 0.8
+    ) +
+    geom_point(aes(y = Size * 500), shape = 15, size = 5.0, color = "red") +
+    theme_minimal() +
+    theme(
+        plot.title = element_text(hjust = 0.5),
+        plot.caption = element_text(hjust = 0),
+        plot.background = element_rect(
+            fill = "white", colour = "white",
+            size = 0.5, linetype = "solid"
+        ),
+        axis.text.x = element_text(angle = 45, hjust = 1, size = 11),
+        axis.text.y = element_text(size = 11, color = "grey55"),
+        axis.title.x = element_text(color = "black", size = 12),
+        axis.title.y = element_text(color = "grey55", size = 12),
+        axis.text.y.right = element_text(size = 11, color = "red"),
+        axis.title.y.right = element_text(color = "red", size = 12),
+        panel.background = element_blank()
+    ) +
+    labs(
+        title = "Number of Files and Directory Size in Each Root Directory",
+        x = "Root Directory"
+    ) +
+    scale_y_continuous(
+        name = "Total number of files \n",
+        labels = scales::comma,
+        sec.axis = sec_axis(
+            trans = ~ . / 500,
+            name = "Directory Size (GB) \n",
+            labels = scales::comma
+        )
+    )]]>
+        </ac:plain-text-body>
+    </ac:structured-macro>
+<div class="cell-output-display">
+<p><p><ac:structured-macro ac:name="anchor" ac:schema-version="1" ac:local-id="a6aa6f25-0bee-4a7f-929b-71fcb7eba592" ac:macro-id="d2cb5be1217ae6e086bc60005e9d27b7"><ac:parameter ac:name="">fig-barplot2</ac:parameter></ac:structured-macro></p><ac:image
+    ac:align="center"
+    ac:layout="center"
+    ac:alt="">
+        <ri:attachment ri:filename="RWDMS_assay_files/figure-publish/fig-barplot2-1.png" /><ac:caption>Figure 2: Number of files and total size of each root directory</ac:caption>
+    </ac:image></p>
+</div>
+</div>
+<h1 id="file-type-analysis">File Type Analysis<ac:structured-macro ac:name="anchor" ac:schema-version="1" ac:local-id="a6aa6f25-0bee-4a7f-929b-71fcb7eba592" ac:macro-id="d2cb5be1217ae6e086bc60005e9d27b7"><ac:parameter ac:name="">file-type-analysis</ac:parameter></ac:structured-macro></h1>
+<p>Lets take a look at the distribution of file types in the RWDMS filesystem. We’ll start by tabulating the number of files of each file type. We’ll then calculate the total space occupied by each file type by summing across the size variable for each file type. We’ll also add a column that calculates the fractional number of files in each file type, and the fractional size of each file type, respectively. This summary table is displayed below.</p>
+<div class="cell">
+<ac:structured-macro
+      ac:name="code"
+      ac:schema-version="1"
+      ac:macro-id="1d1a2d13-0179-4d8f-b448-b28dfaceea4a">
+        <ac:parameter ac:name="language">r</ac:parameter>
+        <ac:plain-text-body>
+          <![CDATA[library(DT)
+rdwms_data %>%
+    group_by(file_ext) %>%
+    summarize(count = n(), size_GB = (sum(file_size) / (1024^3))) %>%
+    arrange(desc(count)) %>%
+    mutate(
+        num_frac = paste0(round(count / sum(count) * 100, 3), "%"),
+        count = scales::comma(count),
+        size_frac = paste0(round(size_GB / sum(size_GB) * 100, 3), "%"),
+        size_GB = scales::comma(round(size_GB, 3))
+    ) %>%
+    datatable( # Use the datatable() function instead of kable() and kable_styling()
+        options = list(
+            scrollX = TRUE, # Enable horizontal scrolling
+            columnDefs = list(list(className = "dt-left", targets = 1:5)),
+            pageLength = 10, # Number of rows per page
+            lengthMenu = c(10, 25, 50, 100), # Number of rows per page options
+            ordering = TRUE # Enable column sorting
+        ),
+        caption = htmltools::tags$caption(
+            style = "caption-side: bottom; text-align: center;",
+            "Table 2: ", htmltools::em("Analysis of file types in the RWDMS filesystem")
+        )
+    ) %>%
+    DT::formatStyle(columns = c(1, 2, 3, 4, 5), fontSize = "11pt")]]>
+        </ac:plain-text-body>
+    </ac:structured-macro>
+<div class="cell-output-display">
+
+</div>
+</div>
+<h1 id="checking-for-duplicates">Checking for Duplicates<ac:structured-macro ac:name="anchor" ac:schema-version="1" ac:local-id="a6aa6f25-0bee-4a7f-929b-71fcb7eba592" ac:macro-id="d2cb5be1217ae6e086bc60005e9d27b7"><ac:parameter ac:name="">checking-for-duplicates</ac:parameter></ac:structured-macro></h1>
+<p>Lets check to see if there are any files that are duplicated across multiple directories. Because we are interested in the duplication of large files, we’ll filter the dataset for files greater than 100MB. We’ll start by creating a table of the number of files in each file name. We’ll then arrange the data in descending order by the number of files in each file name and calculate the total size of each file name. We’ll also add a column that calculates the fractional number of files in each file name, and the fractional size of each, respectively.</p>
+<div class="cell">
+<ac:structured-macro
+      ac:name="code"
+      ac:schema-version="1"
+      ac:macro-id="1d1a2d13-0179-4d8f-b448-b28dfaceea4a">
+        <ac:parameter ac:name="language">r</ac:parameter>
+        <ac:plain-text-body>
+          <![CDATA[# Filter for files with duplicate filenames and sizes
+duplicate_files <- rdwms_data %>%
+    filter(file_size >= 1024^2 * 100) %>% # Filter for files >= 100MB
+    group_by(file_name, file_size) %>%
+    filter(n() > 1) %>%
+    arrange(file_name, file_size) %>%
+    mutate(
+        file_size = round(file_size / (1024^3), 2), # Convert bytes to GB
+    )
+
+duplicate_files %>%
+    datatable( # Use the datatable() function instead of kable() and kable_styling()
+        options = list(
+            scrollX = TRUE, # Enable horizontal scrolling
+            columnDefs = list(list(className = "dt-left", targets = 1:5)),
+            pageLength = 10, # Number of rows per page
+            lengthMenu = c(10, 25, 50, 100), # Number of rows per page options
+            ordering = TRUE # Enable column sorting
+        ),
+        caption = htmltools::tags$caption(
+            style = "caption-side: bottom; text-align: center;",
+            "Table 3: ", htmltools::em("Listing duplicate files in the RWDMS filesystem (files >= 100MB)")
+        )
+    ) %>%
+    DT::formatStyle(columns = c(1, 2, 3, 4, 5), fontSize = "11pt")]]>
+        </ac:plain-text-body>
+    </ac:structured-macro>
+<div class="cell-output-display">
+
+</div>
+</div>
+<p><br/></p>
+<div class="cell">
+<ac:structured-macro
+      ac:name="code"
+      ac:schema-version="1"
+      ac:macro-id="1d1a2d13-0179-4d8f-b448-b28dfaceea4a">
+        <ac:parameter ac:name="language">r</ac:parameter>
+        <ac:plain-text-body>
+          <![CDATA[# Count the number of duplicate files of each type
+duplicate_counts <- duplicate_files %>%
+    group_by(file_name, file_size, file_ext) %>%
+    summarise(
+        Count = n(),
+        TotalSize = sum(file_size)
+    )
+
+# Calculate the total size of duplicate files
+duplicate_files %>%
+    group_by(file_name, file_size, file_ext) %>%
+    summarise(
+        Count = n(),
+        TotalSize = sum(file_size)
+    ) %>%
+    datatable( # Use the datatable() function instead of kable() and kable_styling()
+        options = list(
+            scrollX = TRUE, # Enable horizontal scrolling
+            columnDefs = list(list(className = "dt-left", targets = 1:5)),
+            pageLength = 10, # Number of rows per page
+            lengthMenu = c(10, 25, 50, 100), # Number of rows per page options
+            ordering = TRUE # Enable column sorting
+        ),
+        caption = htmltools::tags$caption(
+            style = "caption-side: bottom; text-align: center;",
+            "Table 4: ", htmltools::em("Summary statistics of duplicate files in the RWDMS filesystem (files >= 100MB)")
+        )
+    ) %>%
+    DT::formatStyle(columns = c(1, 2, 3, 4, 5), fontSize = "11pt")]]>
+        </ac:plain-text-body>
+    </ac:structured-macro>
+<div class="cell-output-display">
+
+</div>
+</div>
+<p><br/></p>
+<div class="cell" data-fig.cap-align="center">
+<ac:structured-macro
+      ac:name="code"
+      ac:schema-version="1"
+      ac:macro-id="1d1a2d13-0179-4d8f-b448-b28dfaceea4a">
+        <ac:parameter ac:name="language">r</ac:parameter>
+        <ac:plain-text-body>
+          <![CDATA[# Calculate the total number and size by file type
+duplicate_files %>%
+    group_by(file_ext) %>%
+    summarise(
+        TotalCount = n(),
+        TotalSize = sum(file_size)
+    ) %>%
+    arrange(desc(TotalCount)) %>%
+    # plot the data
+    ggplot(aes(x = reorder(file_ext, -TotalCount), y = TotalCount)) +
+    geom_bar(stat = "identity", fill = "grey55", alpha = 0.8) +
+    geom_point(aes(y = TotalSize), shape = 15, size = 5.0, color = "red") +
+    theme_minimal() +
+    theme(
+        plot.title = element_text(hjust = 0.5),
+        plot.caption = element_text(hjust = 0),
+        plot.background = element_rect(
+            fill = "white", colour = "white",
+            size = 0.5, linetype = "solid"
+        ),
+        axis.text.x = element_text(hjust = 1, size = 11),
+        axis.text.y = element_text(size = 11, color = "grey55"),
+        axis.title.x = element_text(color = "black", size = 12),
+        axis.title.y = element_text(color = "grey55", size = 12),
+        axis.text.y.right = element_text(size = 11, color = "red"),
+        axis.title.y.right = element_text(color = "red", size = 12),
+        panel.background = element_blank()
+    ) +
+    labs(
+        x = "\n File Type"
+    ) +
+    scale_y_continuous(
+        name = "Total number of large duplicate files \n",
+        sec.axis = sec_axis(
+            trans = ~.,
+            name = "File Size (GB) \n"
+        )
+    )]]>
+        </ac:plain-text-body>
+    </ac:structured-macro>
+<div class="cell-output-display">
+<p><p><ac:structured-macro ac:name="anchor" ac:schema-version="1" ac:local-id="a6aa6f25-0bee-4a7f-929b-71fcb7eba592" ac:macro-id="d2cb5be1217ae6e086bc60005e9d27b7"><ac:parameter ac:name="">fig-barplot3</ac:parameter></ac:structured-macro></p><ac:image
+    ac:align="center"
+    ac:layout="center"
+    ac:alt="">
+        <ri:attachment ri:filename="RWDMS_assay_files/figure-publish/fig-barplot3-1.png" /><ac:caption>Figure 3: Summary statistics of RWDMS filesystem: Count and total size of duplicate files by file type (files &gt;= 100MB)</ac:caption>
+    </ac:image></p>
+</div>
+</div>
+<h1 id="file-inventory">File Inventory<ac:structured-macro ac:name="anchor" ac:schema-version="1" ac:local-id="a6aa6f25-0bee-4a7f-929b-71fcb7eba592" ac:macro-id="d2cb5be1217ae6e086bc60005e9d27b7"><ac:parameter ac:name="">file-inventory</ac:parameter></ac:structured-macro></h1>
+<p>Lets create a searchble invetory of all the files in the RWDMS filesystem. We’ll start by creating a table of all the files in the RWDMS filesystem. We are especially interested in environmental datsets across the filesystem, so we’ll filter for files with text-based (<code>.csv</code>, <code>.txt</code>, <code>.json</code>), binary (<code>.nc</code>, <code>.ncf</code>, <code>.hdf</code>, <code>.h5</code>), geospatial (<code>.tif</code>, <code>.tiff</code>, <code>.shp</code>, <code>.shx</code>, <code>.dbf</code>, <code>.kml</code>, <code>.kmz</code>, <code>.grib</code>, <code>.las</code>), database (<code>.sql</code>, <code>.sqlite</code>, <code>.db</code>, <code>.gdb</code>), and archive (<code>.zip</code>, <code>.rds</code>, <code>RData</code>) file extensions.</p>
+<div class="cell">
+<ac:structured-macro
+      ac:name="code"
+      ac:schema-version="1"
+      ac:macro-id="1d1a2d13-0179-4d8f-b448-b28dfaceea4a">
+        <ac:parameter ac:name="language">r</ac:parameter>
+        <ac:plain-text-body>
+          <![CDATA[# Create a table of all files in the RWDMS filesystem
+rdwms_data %>%
+    filter(
+        tolower(trimws(file_ext)) %in% c(
+            ".csv", ".txt", ".json",
+            ".nc", ".ncf", ".hdf", ".h5",
+            ".tif", ".tiff", ".shp",
+            ".kml", ".kmz", ".grib", ".las",
+            ".sql", ".sqlite", ".db", ".gdb"
+        )
+    ) %>%
+    filter(file_size >= 1024^2 * 100) %>% # Filter for files >= 100MB
+    arrange(file_ext) %>%
+    mutate(
+        file_size = round(file_size / (1024^3), 2), # Convert bytes to GB
+    ) %>%
+    datatable( # Use the datatable() function instead of kable() and kable_styling()
+        options = list(
+            scrollX = TRUE, # Enable horizontal scrolling
+            columnDefs = list(list(className = "dt-left", targets = 1:5)),
+            pageLength = 10, # Number of rows per page
+            lengthMenu = c(10, 25, 50, 100), # Number of rows per page options
+            ordering = TRUE # Enable column sorting
+        ),
+        caption = htmltools::tags$caption(
+            style = "caption-side: bottom; text-align: center;",
+            "Table 5: ", htmltools::em("Inventory of large environmental datasets in the RWDMS filesystem (files >= 100MB)")
+        )
+    ) %>%
+    DT::formatStyle(columns = c(1, 2, 3, 4, 5), fontSize = "11pt")]]>
+        </ac:plain-text-body>
+    </ac:structured-macro>
+<div class="cell-output-display">
+
+</div>
+</div>
