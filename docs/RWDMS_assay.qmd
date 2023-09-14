@@ -31,7 +31,7 @@ First, we'll import the data that we've collected using the PowerShell script an
 #| code-summary: "expand for full code"
 
 library(tidyverse)
-rdwms_data <- read.csv("/Users/RM/Library/CloudStorage/OneDrive-TheMountSinaiHospital/work/rwdms_assay/file_paths_20230830.txt",
+rdwms_data <- read.csv("/Users/RM/Library/CloudStorage/OneDrive-TheMountSinaiHospital/work/rwdms_assay/data/file_paths_20230830.txt",
     header = F,
     stringsAsFactors = FALSE,
     check.names = F,
