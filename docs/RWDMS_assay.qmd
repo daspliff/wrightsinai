@@ -4,23 +4,39 @@ author: Ryan Michael
 date: 2023-08-22
 output: 
   html_document:
+    theme: united
+    highlight: tango
+    toc: true
     code_folding: show
+    format: "index"
+    output-ext:  "html"
 ---
 
-# Introduction
+## Introduction
 
 In this document, we will analyze the directory structure and contents of the **RWDMS** filesystem. We will examine file sizes, file types, and the distribution of files across different directories. We will also seek to identify any large files that are duplicated across multiple directories.
 
-# Data Collection
+## Table of Contents
+1. [Data Collection](#data-collection)
+2. [Importing Data](#importing-data)
+3. [Basic Structure Analysis](#basic-structure-analysis)
+4. [File Type Analysis](#file-type-analysis)
+5. [Checking for Duplicates](#checking-for-duplicates)
+6. [File Inventory](#file-inventory)
+
+
+## Data Collection
 The data for this analysis was collected using a PowerShell script that recursively iterates through the RWDMS filesystem and outputs the directory structure and file information to a text file. The script (included below) generates a text file with the following columns:
 *Directory, Full Path, File Name, File Extension, File Size.*
 
 ```powershell
 Get-ChildItem -Recurse -File | ForEach-Object { 
-    $firstDir = ($_.DirectoryName -split '\\')[1]
-    "$firstDir, $($_.DirectoryName), $($_.Name), $($_.Extension), $($_.Length)"
-} > D:\tree\file_paths_20230830.txt
+    $firstDir = ($_.DirectoryName -split '\\')[1] #
+    $owner = (Get-Acl $_.FullName).Owner
+    "$firstDir, $($_.DirectoryName), $($_.Name), $($_.Extension), $($_.Length), $($_.LastWriteTime), $owner"
+} > D:\tree\file_paths_20230905.txt
 ```
+
 # Importing Data
 
 First, we'll import the data that we've collected using the PowerShell script and add names to the columns. Be sure to set the encoding to **UCS-2LE** to avoid errors. We'll also use the `rename()` function to give the columns more descriptive names. We'll print the first few rows of the data and the names of the directories to make sure everything looks good.
@@ -31,19 +47,25 @@ First, we'll import the data that we've collected using the PowerShell script an
 #| code-summary: "expand for full code"
 
 library(tidyverse)
-rdwms_data <- read.csv("/Users/RM/Library/CloudStorage/OneDrive-TheMountSinaiHospital/work/rwdms_assay/data/file_paths_20230830.txt",
+rdwms_data <- read.csv("/Users/RM/Library/CloudStorage/OneDrive-TheMountSinaiHospital/work/rwdms_assay/data/file_paths_20230905.txt",
     header = F,
     stringsAsFactors = FALSE,
     check.names = F,
-    fileEncoding = "UCS-2LE"
-) %>%
+    fileEncoding = "UCS-2LE") %>%
     rename(
         root_dir = V1,
         abs_path = V2,
         file_name = V3,
         file_ext = V4,
-        file_size = V5
-    )
+        file_size = V5,
+        last_write = V6,
+        file_owner = V7
+        ) %>%
+    mutate(
+        file_owner = str_replace(file_owner, ".*\\\\", ""),
+        last_write = format(as.POSIXct(last_write, format = "%Y-%m-%d %H:%M:%S"), "%Y-%m-%d")
+        )
+
 
 # Print first few rows of data
 head(rdwms_data)
@@ -360,6 +382,7 @@ Lets create a searchble invetory of all the files in the RWDMS filesystem. We'll
 
 # Create a table of all files in the RWDMS filesystem
 rdwms_data %>%
+    filter(root_dir != "tree") %>%
     filter(
         tolower(trimws(file_ext)) %in% c(
             ".csv", ".txt", ".json",
@@ -387,5 +410,5 @@ rdwms_data %>%
             "Table 5: ", htmltools::em("Inventory of large environmental datasets in the RWDMS filesystem (files >= 100MB)")
         )
     ) %>%
-    DT::formatStyle(columns = c(1, 2, 3, 4, 5), fontSize = "11pt")
+    DT::formatStyle(columns = c(1:7), fontSize = "11pt")
 ```
