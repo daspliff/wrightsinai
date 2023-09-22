@@ -27,14 +27,14 @@ data <- read.csv(
 ) %>%
   mutate(
     root_dir = str_replace_all(root_dir, "_", " "),
-    # root_dir = stringi::stri_trans_totitle(root_dir),
+    root_dir = stringi::stri_trans_toupper(root_dir),
     file_ext = str_squish(file_ext),
     file_size = file_size / (1024^3),
     abs_path = str_replace(abs_path, "D:\\\\", ""),
     file_owner = str_squish(str_replace(file_owner, ".*\\\\", "")),
     file_date = format(as.POSIXct(file_date, format = "%Y-%m-%d %H:%M:%S"), "%Y-%m-%d") # noLint: line_length_linter
   ) %>%
-  filter(root_dir != "tree") %>% # Remove the root directory
+  filter(root_dir != "TREE") %>% # Remove the root directory
   filter(file_owner != "O:S-1-5-21-1503492212-1939026780-3606245752-1012" &
            file_owner != "")
 
@@ -44,35 +44,58 @@ data <- data %>%
   mutate(category = case_when(
     file_ext == ".csv" & file_size > 0.5 ~ "Databases & Data Files",
     file_ext == ".csv" & file_size <= 0.5 ~ "Documents & Spreadsheets",
-    file_ext %in% c(".txt", ".json", ".xlsx", ".docx", ".xls", ".doc", ".pptx", ".pdf") ~ "Documents & Spreadsheets",
-    file_ext %in% c(".csv", ".txt", ".json", ".xlsx", ".docx", ".xls", ".doc", ".pptx", ".pdf") ~ "Documents & Spreadsheets",
-    file_ext %in% c(".zip", ".gz", ".ZIP", ".GZ") ~ "Archive Files",
-    file_ext %in% c(".tif", ".shp", ".shx", ".dbf", ".kml", ".kmz", ".geojson", ".gdbindexes", ".gdbtable", ".tiff", ".grib",
-                    ".gdbtablx", ".gpkg", ".qmd", ".xyz", ".qgz", ".fits", ".las", ".los", ".img", ".ige", ".rde") ~ "Geospatial & GIS",
-    file_ext %in% c(".xml", ".xsl", ".dtd", ".xsd", ".rng", ".xslt", ".html", ".css", ".js", ".scss", ".yaml", ".rst", ".md", ".toml") ~ "Markup & Web",
-    file_ext %in% c(".jpg", ".jpeg", ".png", ".gif", ".eps", ".ico", ".xbm", ".ppm", ".svg", ".svgz", ".ani", ".cur", ".eps") ~ "Images",
-    file_ext %in% c(".r", ".rhistory", ".rdata", ".rmd", ".py", ".pyc", ".pyw", ".pyi", ".pyd", ".c", ".cpp", ".h", ".ini", ".sh", ".ps1", 
-                    ".csh", ".fish", ".tm", ".tcl", ".f90", ".f", ".bat", ".com") ~ "Programming & Scripts",
-    file_ext %in% c(".gdb", ".xml", ".db", ".sql", ".sqlite", ".mat", ".rds", ".nc", ".ncf", ".dat", ".pickle", ".npy", ".npz", ".sas7bdat", ".pkl", ".fsl", ".rrd") ~ "Databases & Data Files",
+    file_ext %in% c(".txt", ".json", ".xlsx", ".docx", ".xls", 
+                    ".doc", ".pptx", ".pdf") ~ "Documents & Spreadsheets",
+    file_ext %in% c(".zip", ".gz") ~ "Archive Files",
+    file_ext %in% c(".tif", ".shp", ".shx", ".dbf", 
+                    ".kml", ".kmz", ".geojson", ".gdbindexes", 
+                    ".gdbtable", ".tiff", ".grib", ".gdbtablx", 
+                    ".gpkg", ".qmd", ".xyz", ".qgz", ".fits", 
+                    ".las", ".los", ".img", ".ige", ".rde") ~ "Geospatial & GIS",
+    file_ext %in% c(".xml", ".xsl", ".dtd", ".xsd",
+                    ".rng", ".xslt", ".html", ".css", 
+                    ".js", ".scss", ".yaml", ".rst", 
+                    ".md", ".toml") ~ "Markup & Web",
+    file_ext %in% c(".jpg", ".jpeg", ".png", ".gif", 
+                    ".eps", ".ico", ".xbm", ".ppm", 
+                    ".svg", ".svgz", ".ani", ".cur", ".eps") ~ "Images",
+    file_ext %in% c(".r", ".rhistory", ".rdata", ".rmd", 
+                    ".py", ".pyc", ".pyw", ".pyi", 
+                    ".pyd", ".c", ".cpp", ".h", ".ini", 
+                    ".sh", ".ps1", ".csh", ".fish", 
+                    ".tm", ".tcl", ".f90", ".f", 
+                    ".bat", ".com") ~ "Programming & Scripts",
+    file_ext %in% c(".gdb", ".xml", ".db", ".sql", 
+                    ".sqlite", ".mat", ".rds", ".nc", 
+                    ".ncf", ".dat", ".pickle", ".npy", 
+                    ".npz", ".sas7bdat", ".pkl", ".fsl", ".rrd") ~ "Databases & Data Files",
     TRUE ~ "Others" # Catch-all for other file formats
   )) %>%
   group_by(category) %>%
   mutate(cat_size = sum(file_size, na.rm = TRUE)/1024) %>%
   mutate(category = ifelse(
-    cat_size < 1,
-    paste0(category, " (", round(cat_size * 1000, 1), " GB)"),
-    paste0(category, " (", round(cat_size, 1), " TB)")
+    cat_size < 0.001, # Files less than 1 GB
+    paste0(category, " (", round(cat_size * 1000000, 1), " MB)"),
+    ifelse(
+      cat_size < 1, # Files between 1 GB and 1 TB
+      paste0(category, " (", round(cat_size * 1000, 1), " GB)"),
+      paste0(category, " (", round(cat_size, 1), " TB)") # Files greater than 1 TB
+    )
   )) %>%
   ungroup() %>%
   group_by(root_dir) %>%
   mutate(dir_size = sum(file_size, na.rm = TRUE)/1024) %>%
   mutate(root_dir = ifelse(
-    dir_size < 1,
-    paste0(root_dir, " (", round(dir_size * 1000, 1), " GB)"),
-    paste0(root_dir, " (", round(dir_size, 1), " TB)")
+    dir_size < 0.001, # Files less than 1 GB
+    paste0(root_dir, " (", round(dir_size * 1000000, 1), " MB)"),
+    ifelse(
+      dir_size < 1, # Files between 1 GB and 1 TB
+      paste0(root_dir, " (", round(dir_size * 1000, 1), " GB)"),
+      paste0(root_dir, " (", round(dir_size, 1), " TB)") # Files greater than 1 TB
+    )
   )) %>%
   ungroup()
-  
+
 
 # Prepare nodes & links (avoid duplication in nodes)
 nodes <- data.frame(name = unique(c(data$root_dir, data$category)))
@@ -86,7 +109,7 @@ links <- data %>%
   rename(target = id) %>%
   filter(!is.na(source) & !is.na(target))
 
-################## Owner nodes #############
+################## Add Owner nodes #############
 owner_nodes <- data.frame(name = unique(data$file_owner))
 nodes <- rbind(select(nodes, "name"), owner_nodes)
 nodes$id <- seq(0, nrow(nodes) - 1)
@@ -105,19 +128,27 @@ links <- rbind(links, owner_links)
 
 ############################################
 
-# Choose a Vibrant Color Palette
-# Define a vibrant color scale
-color_scale <- RColorBrewer::brewer.pal(8, "Set3")
+# Define a color scale
+set.seed(as.numeric(Sys.time()))
+color_scale <- c('#e6194B', '#3cb44b', '#ffe119', '#4363d8', '#f58231', 
+                 '#911eb4', '#42d4f4', '#f032e6', '#bfef45', '#fabed4', 
+                 '#469990', '#dcbeff', '#9A6324', '#fffac8', '#800000', 
+                 '#aaffc3', '#808000', '#ffd8b1', '#000075', '#a9a9a9',
+                 '#d62728', '#bcbd22', '#1f77b4'
+)
 
 # Calculate the number of unique node names
 num_unique_names <- length(unique(nodes$name))
 
-# Repeat the color scale to match the number of unique node names
-color_scale <- rep(color_scale, length.out = num_unique_names)
+# Shuffle and repeat the color scale to match the number of unique node names
+color_scale <- sample(rep(color_scale, ceiling(num_unique_names / length(color_scale))))
+color_scale <- color_scale[1:num_unique_names]
 
 # Map the node names to colors
 color_mapping <- setNames(color_scale, unique(nodes$name))
 
+# Apply the color mapping to the nodes data frame
+nodes$color <- color_mapping[nodes$name]
 
 # Plot the Sankey diagram (enhanced settings)
 sankeyPlot <- sankeyNetwork(
@@ -127,19 +158,18 @@ sankeyPlot <- sankeyNetwork(
   Target = "target",
   Value = "value",
   NodeID = "name",
-  NodeGroup = "name",
-  colourScale = JS("d3.scaleOrdinal(d3.schemeCategory10)"),
-  fontSize = 17,
+  NodeGroup = "color",
+  fontSize = 14,
+  fontFamily = "Helvetica",
   nodeWidth = 35,
-  nodePadding = 25,
+  nodePadding = 27,
+  # sinksRight = TRUE,
   margin = list(left = 15, right = 15)
 )
 
 # Save or render the plot
 saveNetwork(sankeyPlot, "/Users/RM/OneDrive - The Mount Sinai Hospital/work/rwdms_assay/sankey.html")
 sankeyPlot
-
-
 
 
 ### Using Plotly ####
@@ -170,15 +200,15 @@ sankey_data <- list(
   )
 )
 
-# Given your nodes and links preparation
-
 # Create a sankey diagram layout
 layout <- list(
   title = "Sankey Diagram using Plotly",
   font = list(size = 10),
   updatemenu = list(type = 'buttons', 
                     showactive = FALSE, 
-                    buttons = list(list(label = 'Toggle', method = 'relayout', args = list('paper_bgcolor', 'white')))
+                    buttons = list(list(label = 'Toggle', 
+                                        method = 'relayout', 
+                                        args = list('paper_bgcolor', 'white')))
   )
 )
 
