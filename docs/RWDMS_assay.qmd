@@ -408,3 +408,4 @@ rdwms_data %>%
     ) %>%
     DT::formatStyle(columns = c(1:7), fontSize = "11pt")
 ```
+

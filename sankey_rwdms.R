@@ -162,10 +162,15 @@ sankeyPlot <- sankeyNetwork(
   fontSize = 14,
   fontFamily = "Helvetica",
   nodeWidth = 35,
-  nodePadding = 27,
+  nodePadding = 25,
   # sinksRight = TRUE,
   margin = list(left = 15, right = 15)
 )
+
+# # Add plot title NOT WORKING CORRECTLY!!!!
+# sankeyPlot <- htmlwidgets::prependContent(sankeyPlot,
+#                                           htmltools::tags$h4("Analysis of RWDMS Filesystem",
+#                                                              style="text-align:center; color:#a9a9a9;"))
 
 # Save or render the plot
 saveNetwork(sankeyPlot, "/Users/RM/OneDrive - The Mount Sinai Hospital/work/rwdms_assay/sankey.html")
